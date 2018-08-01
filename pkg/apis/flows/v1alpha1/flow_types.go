@@ -39,7 +39,7 @@ type Flow struct {
 	Status FlowStatus `json:"status"`
 }
 
-// Check that Revision can be validated, can be defaulted, and has immutable fields.
+// Check that Flow can be validated, can be defaulted, and has immutable fields.
 var _ apis.Validatable = (*Flow)(nil)
 var _ apis.Defaultable = (*Flow)(nil)
 var _ apis.Immutable = (*Flow)(nil)
