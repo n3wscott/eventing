@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"encoding/json"
 
+	"github.com/knative/pkg/apis"
 	kapi "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -38,6 +39,11 @@ type Bus struct {
 	Spec               BusSpec   `json:"spec"`
 	Status             BusStatus `json:"status,omitempty"`
 }
+
+// Check that Bus can be validated, can be defaulted, and has immutable fields.
+var _ apis.Validatable = (*Bus)(nil)
+var _ apis.Defaultable = (*Bus)(nil)
+var _ apis.Immutable = (*Bus)(nil)
 
 // BusSpec specifies the Bus' parameters for Channels and Subscriptions, how the
 // provisioner and dispatcher for a bus should be run, and which volumes should
