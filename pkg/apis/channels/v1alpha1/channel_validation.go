@@ -20,6 +20,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/knative/pkg/apis"
+
+	"fmt"
+	"k8s.io/apimachinery/pkg/util/validation"
+	"strings"
 )
 
 func (c *Channel) Validate() *apis.FieldError {
@@ -32,8 +36,14 @@ func (cs *ChannelSpec) Validate() *apis.FieldError {
 	case len(cs.Bus) != 0 && len(cs.ClusterBus) != 0:
 		return ErrMultipleOneOf("bus", "clusterBus")
 	case len(cs.Bus) != 0:
+		if errs := validation.IsQualifiedName(cs.Bus); len(errs) > 0 {
+			return ErrInvalidKeyName(cs.Bus, "bus", errs...)
+		}
 		return nil
 	case len(cs.ClusterBus) != 0:
+		if errs := validation.IsQualifiedName(cs.ClusterBus); len(errs) > 0 {
+			return ErrInvalidKeyName(cs.ClusterBus, "clusterBus", errs...)
+		}
 		return nil
 	default:
 		return ErrMissingOneOf("bus", "clusterBus")
@@ -71,5 +81,13 @@ func ErrMultipleOneOf(fieldPaths ...string) *apis.FieldError {
 	return &apis.FieldError{
 		Message: "expected exactly one, got neither",
 		Paths:   fieldPaths,
+	}
+}
+
+func ErrInvalidKeyName(value, fieldPath string, details ...string) *apis.FieldError {
+	return &apis.FieldError{
+		Message: fmt.Sprintf("invalid key name %q", value),
+		Paths:   []string{fieldPath},
+		Details: strings.Join(details, ", "),
 	}
 }
