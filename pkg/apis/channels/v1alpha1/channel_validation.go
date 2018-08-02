@@ -27,12 +27,17 @@ func (c *Channel) Validate() *apis.FieldError {
 }
 
 func (cs *ChannelSpec) Validate() *apis.FieldError {
-	refsBus := len(cs.Bus) != 0
-	refsClusterBus := len(cs.ClusterBus) != 0
-	if (!refsBus && !refsClusterBus) || (refsBus && refsClusterBus) {
-		return ErrMutuallyExclusiveFields("bus", "clusterBus")
+
+	switch {
+	case len(cs.Bus) != 0 && len(cs.ClusterBus) != 0:
+		return ErrMultipleOneOf("bus", "clusterBus")
+	case len(cs.Bus) != 0:
+		return nil
+	case len(cs.ClusterBus) != 0:
+		return nil
+	default:
+		return ErrMissingOneOf("bus", "clusterBus")
 	}
-	return nil
 }
 
 func (current *Channel) CheckImmutableFields(og apis.Immutable) *apis.FieldError {
@@ -55,9 +60,16 @@ func (current *Channel) CheckImmutableFields(og apis.Immutable) *apis.FieldError
 // Boneyard
 
 // TODO: use from pkg when https://github.com/knative/pkg/pull/34 lands
-func ErrMutuallyExclusiveFields(fieldPaths ...string) *apis.FieldError {
+func ErrMissingOneOf(fieldPaths ...string) *apis.FieldError {
 	return &apis.FieldError{
-		Message: "mutually exclusive fields, must set only one of",
+		Message: "expected exactly one, got both",
+		Paths:   fieldPaths,
+	}
+}
+
+func ErrMultipleOneOf(fieldPaths ...string) *apis.FieldError {
+	return &apis.FieldError{
+		Message: "expected exactly one, got neither",
 		Paths:   fieldPaths,
 	}
 }
