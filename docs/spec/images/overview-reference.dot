@@ -7,16 +7,19 @@ digraph G {
   dir=TB; 
   node [shape=rectangle; width=1.4; height=.5; fixedsize=true;]
 
-  Flow;
-  Source;
+  subgraph cluster_A {
+    Flow;
+    Source;
+  }
+
   Provisioner;
   EventType;
 
-  Publisher [style=dashed];
-  Action [style=dashed];
-  Trigger [style=dashed];
+  Publisher [shape=parallelogram; style=dashed];
+  Action [shape=parallelogram; style=dashed];
+  Trigger [shape=parallelogram; style=dashed];
 
-  Service [style=dotted];
+  Service [shape=septagon; style=dotted];
 
   Bus;
   Channel;
@@ -43,7 +46,11 @@ digraph G {
   Publisher -> Source;
   Publisher -> Channel;
 
+  // this is for ordering only.
+  Source -> Subscription [style=invis];
+
+  {rank=min; Source, Flow};
+  {rank=same; Provisioner, Subscription};
   {rank=same; Publisher, Action, Trigger};
 
- // {rank=min; Flow; Source;}
 }
