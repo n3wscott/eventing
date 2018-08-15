@@ -12,7 +12,7 @@ digraph G {
   Provisioner;
   EventType;
 
-  SourceType [label="Source"; style=dashed];
+  Publisher [style=dashed];
   Action [style=dashed];
   Trigger [style=dashed];
 
@@ -31,7 +31,7 @@ digraph G {
 
   Channel -> Bus;
  
-  Subscription -> SourceType;
+  Subscription -> Publisher;
   Subscription -> Action;
   Subscription -> EventType;
 
@@ -40,10 +40,10 @@ digraph G {
   Action -> Channel;
   Action -> Service;
 
-  SourceType -> Source;
-  SourceType -> Channel;
+  Publisher -> Source;
+  Publisher -> Channel;
 
-  {rank=same; SourceType, Action, Trigger};
+  {rank=same; Publisher, Action, Trigger};
 
  // {rank=min; Flow; Source;}
 }
