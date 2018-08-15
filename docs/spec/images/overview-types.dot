@@ -1,0 +1,31 @@
+// This is the overview graph for object refrences in the control plane.
+//
+// To reproduce the PNG, run the following:
+// $ dot -Tpng overview-types.dot -o overview-types.png
+//
+digraph G {
+  
+  node [shape=rectangle; width=1.4; height=.5; fixedsize=true;]
+
+  subgraph cluster_A {
+   
+    Flow;
+    Source;
+    Provisioner;
+    EventType;
+
+    label = "eventing.knative.dev";
+  }
+
+  subgraph cluster_B {
+    delivery [style=invis]; // 4 elements to make the subgraphs the same size.
+    Bus;
+    Channel;
+    Subscription;
+    label = "delivery.knative.dev";
+  }
+
+  // this is for alignment.
+  Flow -> delivery [style=invis]; 
+
+}

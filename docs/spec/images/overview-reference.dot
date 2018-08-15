@@ -4,30 +4,46 @@
 // $ dot -Tpng overview-reference.dot -o overview-reference.png
 //
 digraph G {
-  ordering = out;
-  rankdir = LR;
-  
-  node [shape=rectangle; width=1.25; height=.5; fixedsize=true;]
-  
-  subgraph cluster_A {
-    Source -> EventType [dir=back];
-    color=white; 
-    {rank = same; Source; EventType;}
-  }
-  
-  subgraph cluster_C {
-    Feed;
-    Channel
-    Subscription;
-    label = "Flow";
-  }
-  EventType -> Feed [dir=back];
-  Feed -> Channel;
+  dir=TB; 
+  node [shape=rectangle; width=1.4; height=.5; fixedsize=true;]
 
-  Subscription -> Service;
-  Channel -> Subscription [dir=back];
+  Flow;
+  Source;
+  Provisioner;
+  EventType;
 
-  Bus -> Channel [dir=back];
+  SourceType [label="Source"; style=dashed];
+  Action [style=dashed];
+  Trigger [style=dashed];
 
-  {rank = max; Service;}
+  Service [style=dotted];
+
+  Bus;
+  Channel;
+  Subscription;
+
+  Provisioner -> EventType;
+  Source -> Provisioner;
+ 
+  Flow -> Source;
+  Flow -> Trigger;
+  Flow -> Action;
+
+  Channel -> Bus;
+ 
+  Subscription -> SourceType;
+  Subscription -> Action;
+  Subscription -> EventType;
+
+  Trigger -> EventType; 
+
+  Action -> Channel;
+  Action -> Service;
+
+  SourceType -> Source;
+  SourceType -> Channel;
+
+  {rank=same; SourceType, Action, Trigger};
+
+ // {rank=min; Flow; Source;}
 }
