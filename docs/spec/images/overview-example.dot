@@ -1,0 +1,52 @@
+// This is the overview graph for object refrences in the control plane.
+//
+// To reproduce the PNG, run the following:
+// $ dot -Tpng overview-example.dot -o overview-example.png
+//
+digraph G {
+  rankdir=LR;
+  graph[compound=true];
+  node[shape=record];
+
+  Provisioner [label="<n> name:github|kind:Provisioner|<t> EventType"; fillcolor=turquoise; style=filled];
+
+  EventType [label="<n> name:dev.knative.github.pullrequest|kind:EventType"; fillcolor=turquoise; style=filled];
+
+  Source [label="<n> name:github-n3wscott-kopond|kind:Source|<p> Provisoner"; fillcolor=coral; style=filled];
+
+  Flow [label="<n> name:kopond-pullrequests|kind:Flow|<s> Source|<a> Action|<t> Trigger"; fillcolor=coral; style=filled];
+
+  Channel [label="<n> name:kopond-pullrequests-channel|kind:Channel|<b> Bus"];
+
+  Bus [label="<n> name:PubSubBus|kind:Bus"; fillcolor=turquoise; style=filled];
+
+  Sub1 [label="<n> name:kopond-pullrequests-channel|kind:Subscription|<t> EventType|<a> Action|<p> Publisher"];
+
+  Sub2 [label="<n> name:kopond-pullrequests-service|kind:Subscription|<t> EventType|<a> Action|<p> Publisher"];
+
+  Service [shape=septagon; style=dotted];
+
+  Provisioner:t -> EventType:n;
+
+  Source:p -> Provisioner:n;
+
+  Flow:s -> Source:n;
+  Flow:t -> EventType:n;
+  Flow:a -> Service;
+
+  Channel:b -> Bus:n;
+
+  Sub1:t -> EventType:n;
+  Sub1:p -> Source:n;
+  Sub1:a -> Channel:n;
+    
+  Sub2:p -> Channel:n;
+  Sub2:a -> Service;
+
+
+  Flow -> Source -> Sub1 -> Channel -> Sub2 -> Service [style=invis];
+
+  {rank=min; Flow;}
+  {rank=same; Bus; Channel;}
+  {rank=max; Service;}
+}
