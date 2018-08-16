@@ -6,14 +6,15 @@
 digraph G {
   rankdir=LR;
   node[shape=record];
+  graph [pad="1.25"];
 
   Prov [label="<k> kind:Provisioner|<t> EventType [0..*]"];
 
   EventType [label="<k> kind:EventType"];
 
-  Source [label="<k> kind:Source|<p> Provisoner [1..1]"];
+  Source [label="<k> kind:Source|<p> Provisioner [1..1]"];
 
-  Flow [label="<k> kind:Flow|<s> Source [1..1]|<a> Sink [0..1]|<ta> Trigger.Sink [0..*]|<tt> Trigger.EventType[0..*]"];
+  Flow [label="<k> kind:Flow|<s> Source [0..*]|<a> Sink [1..1]|Trigger[0..*]|<tt> t.EventType"];
 
   Chan [label="<k> kind:Channel|<b> Bus [1..1]"];
 
@@ -28,7 +29,6 @@ digraph G {
   Source:p -> Prov:k;
 
   Flow:s -> Source:k;
-  Flow:ta -> Sinks;
   Flow:tt -> EventType:k;
   Flow:a -> Sinks;
 
@@ -41,6 +41,9 @@ digraph G {
   Sub:a -> Sinks;
 
   {rank=same; Flow; Sub}
-  {rank=max; Chan; Bus;}
-  {rank=min; Source; Prov; EventType;}
+//  {rank=max; Chan; Bus;}
+//  {rank=max; Bus;}
+//  {rank=min; Source; Prov; EventType;}
+  {rank=min; Flow;}
+  {rank=max; Sinks;}
 }
