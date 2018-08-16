@@ -1,0 +1,46 @@
+// This is the overview graph for object refrences in the control plane.
+//
+// To reproduce the PNG, run the following:
+// $ dot -Tpng overview-objects.dot -o overview-objects.png
+//
+digraph G {
+  rankdir=LR;
+  node[shape=record];
+
+  Prov [label="<k> kind:Provisioner|<t> EventType [0..*]"];
+
+  EventType [label="<k> kind:EventType"];
+
+  Source [label="<k> kind:Source|<p> Provisoner [1..1]"];
+
+  Flow [label="<k> kind:Flow|<s> Source [1..1]|<a> Sink [0..1]|<ta> Trigger.Sink [0..*]|<tt> Trigger.EventType[0..*]"];
+
+  Chan [label="<k> kind:Channel|<b> Bus [1..1]"];
+
+  Bus [label="<k> kind:Bus"];
+
+  Sub [label="<k> kind:Subscription|<t> EventType [0..1]|<a> Action [1..1]|<p> Publisher [1..1]"];
+
+  Sinks [shape=rectangle style=dashed; label="Service\nRoute\nRevision\nDNS Name"];
+
+  Prov:t -> EventType:k;
+
+  Source:p -> Prov:k;
+
+  Flow:s -> Source:k;
+  Flow:ta -> Sinks;
+  Flow:tt -> EventType:k;
+  Flow:a -> Sinks;
+
+  Chan:b -> Bus:k;
+
+  Sub:t -> EventType:k;
+  Sub:p -> Source:k;
+  Sub:p -> Chan:k;
+  Sub:a -> Chan:k;
+  Sub:a -> Sinks;
+
+  {rank=same; Flow; Sub}
+  {rank=max; Chan; Bus;}
+  {rank=min; Source; Prov; EventType;}
+}

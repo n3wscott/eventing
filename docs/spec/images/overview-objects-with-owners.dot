@@ -1,0 +1,56 @@
+// This is the overview graph for object refrences in the control plane.
+//
+// To reproduce the PNG, run the following:
+// $ dot -Tpng overview-example.dot -o overview-example.png
+//
+digraph G {
+  rankdir=LR;
+  graph[compound=true];
+  node[shape=record];
+
+  Prov [label="<k> kind:Provisioner|<t> EventType|<o> Owner"];
+
+  EventType [label="<k> kind:EventType|<o> Owner"];
+
+  Source [label="<k> kind:Source|<p> Provisoner|<o> Owner"];
+
+  Flow [label="<k> kind:Flow|<s> Source|<a> Action|<t> Trigger|<o> Owner"];
+
+  Chan [label="<k> kind:Channel|<b> Bus|<o> Owner"];
+
+  Bus [label="<k> kind:Bus|<o> Owner"];
+
+  Sub [label="<k> kind:Subscription|<t> EventType|<a> Action|<p> Publisher|<o> Owner"];
+
+  Target [shape=rectangle style=dashed];
+  Service [shape=rectangle style=dashed];
+
+  Prov:t -> EventType:k;
+
+  //EventType:o -> Prov:k;
+
+  Source:p -> Prov:k;
+
+  Flow:s -> Source:k;
+  Flow:t -> EventType:k;
+  Flow:a -> Target;
+
+  Chan:b -> Bus:k;
+  //Chan:o -> Flow:k;
+
+  Sub:t -> EventType:k;
+  Sub:p -> Source:k;
+  Sub:p -> Chan:k;
+  Sub:a -> Chan:k;
+  Sub:a -> Service;
+  //Sub:o -> Flow:k;
+
+  Target -> Service;
+    
+//  Flow -> Source -> Sub -> Chan -> Sub -> Target [style=invis];
+
+  //{rank=min; Flow;}
+  {rank=same; Flow; Source; Prov;}
+  {rank=same; Sub; EventType;}
+  //{rank=max; Service;}
+}
