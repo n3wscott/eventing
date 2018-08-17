@@ -14,9 +14,9 @@ digraph G {
 
   Source [label="<k> kind:Source|<p> Provisioner [1..1]"];
 
-  Flow [label="<k> kind:Flow|<s> Source [0..*]|<a> Sink [1..1]|Trigger[0..*]|<tt> t.EventType"];
+  Flow [label="<k> kind:Flow|<s> Source [0..*]|<a> Sink [1..1]|Trigger[0..*]|<tt> t.EventType|<p> Pipe[0..*]]"];
 
-  Chan [label="<k> kind:Channel|<p> Provisioner [1..1]"];
+  Pipe [label="<k> kind:Pipe|<p> Provisioner [1..1]"];
 
   Sub [label="<k> kind:Subscription|<t> EventType [0..1]|<a> Action [1..1]|<p> Publisher [1..1]"];
 
@@ -29,13 +29,14 @@ digraph G {
   Flow:s -> Source:k;
   Flow:tt -> EventType:k;
   Flow:a -> Sinks;
+  Flow:p -> Pipe;
 
-  Chan:p -> Prov:k;
+  Pipe:p -> Prov:k;
 
   Sub:t -> EventType:k;
   Sub:p -> Source:k;
-  Sub:p -> Chan:k;
-  Sub:a -> Chan:k;
+  Sub:p -> Pipe:k;
+  Sub:a -> Pipe:k;
   Sub:a -> Sinks;
 
   {rank=same; Flow; Sub}
