@@ -17,8 +17,7 @@ A **Subscribable** resource may be referenced in the _from_ field of a
 _Subscription_. The _Subscribable_ resource MUST expose a
 _status.subscriptions_ field (an _ObjectReference_). The resource
 referenced in the _status.subscriptions_ field MUST be a
-_ChannelSubscriptionSet_ resource; the field MAY refer back to this _Subscribable_ as a
-self referenced resource.
+_ChannelSubscriptionSet_ resource.
 
 ### Data Plane
 

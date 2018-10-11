@@ -11,8 +11,8 @@ This document details our _Spec_ and _Status_ customizations.
 
 - [Source](#kind-source)
 - [Channel](#kind-channel)
-  - [ChannelSubscriptionSet](#kind-channelsubscriptionset)
 - [Subscription](#kind-subscription)
+  - [ResolvedSubscriptionSet](#kind-resolvedsubscriptionset)
 - [Provider](#kind-provisioner)
 
 ---
@@ -100,7 +100,7 @@ Subscription's call parameter._
 | sinkable      | Sinkable     | Address to the endpoint as top-level domain that will distribute traffic over the provided targets from inside the cluster. |             |
 | subscribable  | Subscribable |                                                                                                                             |             |
 | conditions    | Conditions   | Standard Subscriptions                                                                                                      |             |
-| subscriptions | ObjectRef    | Reference to the ChannelSubscriptionSet for this Channel.                                                                   |             |
+| subscriptions | ObjectRef    | Reference to the ResolvedSubscriptionSet for this Channel.                                                                  |             |
 
 ##### Conditions
 
@@ -114,36 +114,11 @@ Subscription's call parameter._
 
 ### Life Cycle
 
-| Action | Reactions                                                                                                                                                        | Limitations                                                          |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| Create | The Provisioner referenced will take ownership of the Channel and begin provisioning the backing resources required for the Channel depending on implementation. | Only one Provisioner is allowed to be the Owner for a given Channel. |
-| Update | The Provisioner will synchronize the Channel backing resources to reflect the update.                                                                            |                                                                      |
-| Delete | The Provisioner will deprovision the backing resources if no longer required depending on implementation.                                                        |                                                                      |
-
----
-
-## kind: ChannelSubscriptionSet
-
-### group: eventing.internal.knative.dev/v1alpha1
-
-_A ChannelSubscriptionSet holds an aggregation of resolved subscriptions for a
-Channel._
-
-### Object Schema
-
-#### Spec
-
-| Field         | Type                    | Description                                                           | Limitations                            |
-| ------------- | ----------------------- | --------------------------------------------------------------------- | -------------------------------------- |
-| subscribers\* | ChannelSubscriberSpec[] | Information about subscriptions used to implement message forwarding. | Filled out by Subscription Controller. |
-
-\*: Required
-
-#### Metadata
-
-##### Owner References
-
-- Owned (controlling) by the Channel the subscribers are for.
+| Action | Reactions                                                                                                                                                                                                                                                                                                                       | Limitations                                                          |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Create | The Provisioner referenced will take ownership of the Channel and begin provisioning the backing resources required for the Channel depending on implementation. The Provisioner must create a new ResolvedSubscriptionSet resource for the Channel and save an ObjectRef to that resource in the _status.subscriptions_ field. | Only one Provisioner is allowed to be the Owner for a given Channel. |
+| Update | The Provisioner will synchronize the Channel backing resources to reflect the update.                                                                                                                                                                                                                                           |                                                                      |
+| Delete | The Provisioner will deprovision the backing resources if no longer required depending on implementation.                                                                                                                                                                                                                       |                                                                      |
 
 ---
 
@@ -188,11 +163,47 @@ _Describes a linkage between a Subscribable and a Targetable and/or Sinkable._
 
 ### Life Cycle
 
-| Action | Reactions                                                        | Limitations |
-| ------ | ---------------------------------------------------------------- | ----------- |
-| Create | The publisher referenced needs to be watching for Subscriptions. |             |
-| Update |                                                                  |             |
-| Delete |                                                                  |             |
+There are two phases for Subscription reconciliation:
+
+1. resolving DNS names for the Subscription into a ResolvedSubscription
+   - create a new ResolvedSubscription
+   - set _callableDomain_ as the resolved DNS name for the _spec.call_ target resource according to the Targetable interface
+   - set _sinkableDomain_ as the resolved DNS name for the _spec.result_ target resource according to the Sinkable interface
+2. updating the ResolvedSubscriptionSet resource
+   - resolve the resource referenced in the Subscription's _spec.from_
+   - from that resource, resolve the ResolvedSubscriptionSet via the Subscribable interface
+   - add/update/remove the ResolvedSubscription in the ResolvedSubscriptionSet resource
+
+| Action | Reactions                                                                                                                                                                                               | Limitations |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| Create | Create a ResolvedSubscription entry for the Subscription, add the new entry to the ResolvedSubscriptionSet specified by the Subscribable interface on the resource referenced by the _spec.from_ field. |             |
+| Update | Update the ResolvedSubscription entry for the Subscription with updated DNS name.                                                                                                                       |             |
+| Delete | Remove the ResolvedSubscription entry for the Subscription.                                                                                                                                             |             |
+
+---
+
+## kind: ResolvedSubscriptionSet
+
+### group: eventing.internal.knative.dev/v1alpha1
+
+_A ResolvedSubscriptionSet holds an aggregation of resolved subscriptions for a
+Channel._
+
+### Object Schema
+
+#### Spec
+
+| Field         | Type                   | Description                                                           | Limitations                            |
+| ------------- | ---------------------- | --------------------------------------------------------------------- | -------------------------------------- |
+| subscribers\* | ResolvedSubscription[] | Information about subscriptions used to implement message forwarding. | Filled out by Subscription Controller. |
+
+\*: Required
+
+#### Metadata
+
+##### Owner References
+
+- Owned (controlling) by the resource the subscribers are for.
 
 ---
 
@@ -324,11 +335,11 @@ non-controlling OwnerReference on the EventType resources it knows about.
 
 ### Subscribable
 
-| Field         | Type            | Description                                                        | Limitations                       |
-| ------------- | --------------- | ------------------------------------------------------------------ | --------------------------------- |
-| subscriptions | ObjectReference | The ChannelSubscriptionSet used to collect resolved Subscriptions. | Must be a ChannelSubscriptionSet. |
+| Field         | Type            | Description                                                         | Limitations                        |
+| ------------- | --------------- | ------------------------------------------------------------------- | ---------------------------------- |
+| subscriptions | ObjectReference | The ResolvedSubscriptionSet used to collect resolved Subscriptions. | Must be a ResolvedSubscriptionSet. |
 
-### ChannelSubscriberSpec
+### ResolvedSubscription
 
 | Field          | Type   | Description                                     | Limitations |
 | -------------- | ------ | ----------------------------------------------- | ----------- |
