@@ -15,33 +15,15 @@ can direct to their configured destination.
 
 A **Subscribable** resource may be referenced in the _from_ field of a
 _Subscription_. The _Subscribable_ resource MUST expose a
-_status.subscribable.channelable_ field (an _ObjectReference_). The resource
-referenced in the _status.subscribable.channelable_ field MUST be a
-_Channelable_ resource; the field MAY refer back to this _Subscribable_ as a
+_status.subscriptions_ field (an _ObjectReference_). The resource
+referenced in the _status.subscriptions_ field MUST be a
+_ChannelSubscriptionSet_ resource; the field MAY refer back to this _Subscribable_ as a
 self referenced resource.
 
 ### Data Plane
 
 A **Subscribable** resource produces or forwards events via its
-_status.subscribable.channelable_ resource.
-
----
-
-## Channelable
-
-A **Channelable** resource contains a list of subscribers and is responsible
-for delivering events to each of them.
-
-### Control Plane
-
-The **Channelable** resource stores a list of resolved _Subscriptions_. The
-Subscription Controller is responsible for resolving any ObjectReferences (such
-as _call_ and _result_) in the _Subscription_ to network addresses.
-
-### Data Plane
-
-**Channelable** resources will attempt delivery to each of the _subscribers_
-at least once, and retry if the subscriber returns errors.
+_status.subscriptions_ resource.
 
 ---
 

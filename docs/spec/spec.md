@@ -11,6 +11,7 @@ This document details our _Spec_ and _Status_ customizations.
 
 - [Source](#kind-source)
 - [Channel](#kind-channel)
+  - [ChannelSubscriptionSet](#kind-channelsubscriptionset)
 - [Subscription](#kind-subscription)
 - [Provider](#kind-provisioner)
 
@@ -80,7 +81,6 @@ Subscription's call parameter._
 | ------------- | ---------------------------------- | -------------------------------------------------------------------------- | ------------------------------------ |
 | provisioner\* | ProvisionerReference               | The name of the provisioner to create the resources that back the Channel. | Immutable.                           |
 | arguments     | runtime.RawExtension (JSON object) | Arguments to be passed to the provisioner.                                 |                                      |
-| channelable   | Channelable                        | Holds a list of downstream subscribers for the channel.                    |                                      |
 | eventTypes    | []String                           | An array of event types that will be passed on the Channel.                | Must be objects with kind:EventType. |
 
 \*: Required
@@ -95,11 +95,12 @@ Subscription's call parameter._
 
 #### Status
 
-| Field        | Type         | Description                                                                                                                 | Limitations |
-| ------------ | ------------ | --------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| sinkable     | Sinkable     | Address to the endpoint as top-level domain that will distribute traffic over the provided targets from inside the cluster. |             |
-| subscribable | Subscribable |                                                                                                                             |             |
-| conditions   | Conditions   | Standard Subscriptions                                                                                                      |             |
+| Field         | Type         | Description                                                                                                                 | Limitations |
+| ------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| sinkable      | Sinkable     | Address to the endpoint as top-level domain that will distribute traffic over the provided targets from inside the cluster. |             |
+| subscribable  | Subscribable |                                                                                                                             |             |
+| conditions    | Conditions   | Standard Subscriptions                                                                                                      |             |
+| subscriptions | ObjectRef    | Reference to the ChannelSubscriptionSet for this Channel.                                                                   |             |
 
 ##### Conditions
 
@@ -118,6 +119,31 @@ Subscription's call parameter._
 | Create | The Provisioner referenced will take ownership of the Channel and begin provisioning the backing resources required for the Channel depending on implementation. | Only one Provisioner is allowed to be the Owner for a given Channel. |
 | Update | The Provisioner will synchronize the Channel backing resources to reflect the update.                                                                            |                                                                      |
 | Delete | The Provisioner will deprovision the backing resources if no longer required depending on implementation.                                                        |                                                                      |
+
+---
+
+## kind: ChannelSubscriptionSet
+
+### group: eventing.internal.knative.dev/v1alpha1
+
+_A ChannelSubscriptionSet holds an aggregation of resolved subscriptions for a
+Channel._
+
+### Object Schema
+
+#### Spec
+
+| Field         | Type                    | Description                                                           | Limitations                            |
+| ------------- | ----------------------- | --------------------------------------------------------------------- | -------------------------------------- |
+| subscribers\* | ChannelSubscriberSpec[] | Information about subscriptions used to implement message forwarding. | Filled out by Subscription Controller. |
+
+\*: Required
+
+#### Metadata
+
+##### Owner References
+
+- Owned (controlling) by the Channel the subscribers are for.
 
 ---
 
@@ -298,15 +324,9 @@ non-controlling OwnerReference on the EventType resources it knows about.
 
 ### Subscribable
 
-| Field       | Type            | Description                      | Limitations |
-| ----------- | --------------- | -------------------------------- | ----------- |
-| channelable | ObjectReference | The channel used to emit events. |             |
-
-### Channelable
-
-| Field       | Type                    | Description                                                           | Limitations                            |
-| ----------- | ----------------------- | --------------------------------------------------------------------- | -------------------------------------- |
-| subscribers | ChannelSubscriberSpec[] | Information about subscriptions used to implement message forwarding. | Filled out by Subscription Controller. |
+| Field         | Type            | Description                                                        | Limitations                       |
+| ------------- | --------------- | ------------------------------------------------------------------ | --------------------------------- |
+| subscriptions | ObjectReference | The ChannelSubscriptionSet used to collect resolved Subscriptions. | Must be a ChannelSubscriptionSet. |
 
 ### ChannelSubscriberSpec
 

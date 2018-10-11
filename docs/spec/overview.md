@@ -34,7 +34,6 @@ understood contracts. These eventing resource interfaces may be fulfilled by
 other Kubernetes objects and then composed in the same way as the concreate
 objects. The interfaces are ([Sinkable](interfaces.md#sinkable),
 [Subscribable](interfaces.md#subscribable),
-[Channelable](interfaces.md#channelable),
 [Targetable](interfaces.md#targetable)). For more details, see
 [Interface Contracts](interfaces.md).
 
