@@ -12,7 +12,7 @@ This document details our _Spec_ and _Status_ customizations.
 - [Source](#kind-source)
 - [Channel](#kind-channel)
 - [Subscription](#kind-subscription)
-- [Provider](#kind-provisioner)
+- [Provisioner](#kind-provisioner)
 
 ---
 

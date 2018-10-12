@@ -3,7 +3,7 @@
 The API defines and provides a complete implementation for
 [Subscription](spec.md#kind-subscription), and abstract resource definitions
 for [Sources](spec.md#kind-source), [Channels](spec.md#kind-channel), and
-[Providers](spec.md#kind-provisioner) which may be fulfilled by multiple
+[Provisioners](spec.md#kind-provisioner) which may be fulfilled by multiple
 backing implementations (much like the Kubernetes Ingress resource).
 
 - A **Subscription** describes the transformation of an event and optional
@@ -96,7 +96,7 @@ provide cluster wide defaults for the _Sources_ and _Channels_ they provision.
 _Provisioners_ do not directly handle events. They are 1:N with _Sources_ and
 _Channels_.
 
-For more details, see [Kind: Provider](spec.md#kind-provisioner).
+For more details, see [Kind: Provisioner](spec.md#kind-provisioner).
 
 ---
 
