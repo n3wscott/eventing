@@ -18,7 +18,7 @@ type Heartbeat struct {
 }
 
 var (
-	remote    string
+	sink      string
 	label     string
 	periodStr string
 	period    int
@@ -27,7 +27,7 @@ var (
 )
 
 func init() {
-	flag.StringVar(&remote, "remote", "", "the host url to heartbeat to")
+	flag.StringVar(&sink, "sink", "", "the host url to heartbeat to")
 	flag.StringVar(&label, "label", "", "a special label")
 	flag.StringVar(&periodStr, "period", "5", "the number of seconds between heartbeats")
 }
@@ -53,7 +53,7 @@ func main() {
 
 func send() {
 	hb.Sequence++
-	resp, err := http.Post(remote, "application/json", body())
+	resp, err := http.Post(sink, "application/json", body())
 	if err != nil {
 		log.Printf("Unable to make request: %+v, %v", hb, err)
 		return

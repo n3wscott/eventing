@@ -18,6 +18,7 @@ package resources
 
 import (
 	"fmt"
+
 	"github.com/knative/eventing/pkg/apis/eventing/v1alpha1"
 	"github.com/knative/eventing/pkg/controller"
 
@@ -39,8 +40,8 @@ func MakeDeployment(source *v1alpha1.Source, org *appsv1.Deployment, channel *v1
 			containerArgs = append(containerArgs, fmt.Sprintf("--%s=%q", k, v))
 		}
 	}
-	remote := fmt.Sprintf("--remote=http://%s", channel.Status.Sinkable.DomainInternal)
-	containerArgs = append(containerArgs, remote)
+	sink := fmt.Sprintf("--sink=http://%s", channel.Status.Sinkable.DomainInternal)
+	containerArgs = append(containerArgs, sink)
 
 	deploy := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
