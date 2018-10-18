@@ -36,7 +36,7 @@ objects. The interfaces are ([Sinkable](interfaces.md#sinkable),
 ## Subscription
 
 **Subscriptions** describe a flow of events from one _Channel_) to the next
-Channel\* through transformations (such as a Knative Service which processes
+_Channel_ through transformations (such as a Knative Service which processes
 CloudEvents over HTTP). A _Subscription_ controller resolves the addresses of
 transformations (`call`) and destination storage (`result`) through the
 _Targetable_ and _Sinkable_ interface contracts, and writes the resolved
