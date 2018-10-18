@@ -17,8 +17,8 @@ Kubernetes Ingress resource).
 ![Resource Types Overview](images/resource-types-overview.svg)
 
 - **Provisioners** implement strategies for realizing backing resources for
-  different implementations of _Sources_ and _Channels_ currently active in the
-  eventing system.
+  different implementations of _Channels_ currently active in the eventing
+  system.
 
 <!-- This image is sourced from https://drive.google.com/open?id=1o_0Xh5VjwpQ7Px08h_Q4qnaOdMjt4yCEPixRFwJQjh8 -->
 
@@ -36,8 +36,8 @@ objects. The interfaces are ([Sinkable](interfaces.md#sinkable),
 ## Subscription
 
 **Subscriptions** describe a flow of events from one _Channel_) to the next
-Channel* through transformations (such as a Knative Service which processes
-CloudEvents over HTTP). A \_Subscription* controller resolves the addresses of
+Channel\* through transformations (such as a Knative Service which processes
+CloudEvents over HTTP). A _Subscription_ controller resolves the addresses of
 transformations (`call`) and destination storage (`result`) through the
 _Targetable_ and _Sinkable_ interface contracts, and writes the resolved
 addresses to the _Channel_ in the `from` reference. _Subscriptions_ do not need
@@ -66,9 +66,12 @@ See [Kind: Channel](spec.md#kind-channel).
 
 ## Provisioner
 
-**ClusterProvisioners** are responsible for realizing _Channels_ when required.
-Collectively they define the set of _Channels_ which can be deployed into
-Knative. _Provisioners_ are not required to instantiate all dependent resources
+**ClusterProvisioners** catalogs available implementations of _Channels_.
+_Provisioners_ hold a JSON Schema that is used to validate the _Channel_ input
+arguments. _Provisioners_ make it possible to provide cluster wide defaults for
+the _Channels_ they provision.
+
+_Provisioners_ are not required to instantiate all dependent resources
 of a _Channel_ and will often interact with pre-existing systems. For example,
 the provisioner of a _Channel_ may interact with a message broker to create the
 required messaging endpoints, such as GC PubSub topics, rather than
