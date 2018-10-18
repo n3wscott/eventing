@@ -33,7 +33,7 @@ cannot receive events._
 | ------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
 | provisioner\* | ProvisionerReference               | The provisioner used to create any backing resources and configuration.                                                | Immutable.                                                |
 | arguments     | runtime.RawExtension (JSON object) | Arguments passed to the provisioner for this specific source.                                                          | Arguments must validate against provisioner's parameters. |
-| channel       | ObjectRef                          | Specify an existing channel to use to emit events. If empty, create a new Channel using the cluster/namespace default. | Source will not emit events until channel exists.         |
+| channel\*     | ObjectRef                          | Specify a Channel to target.                                                                                           | Source will not emit events until channel exists.         |
 
 \*: Required
 
@@ -41,7 +41,6 @@ cannot receive events._
 
 | Field        | Type                      | Description                                                                                  | Limitations                                              |
 | ------------ | ------------------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| subscribable | Subscribable              | Pointer to a channel which can be subscribed to in order to receive events from this source. |                                                          |
 | provisioned  | []ProvisionedObjectStatus | Creation status of each Channel and errors therein.                                          | It is expected that a Source list all produced Channels. |
 | conditions   | Conditions                | Source conditions.                                                                           |                                                          |
 
@@ -81,7 +80,6 @@ Subscription's call parameter._
 | provisioner\* | ProvisionerReference               | The name of the provisioner to create the resources that back the Channel. | Immutable.                           |
 | arguments     | runtime.RawExtension (JSON object) | Arguments to be passed to the provisioner.                                 |                                      |
 | channelable   | Channelable                        | Holds a list of downstream subscribers for the channel.                    |                                      |
-| eventTypes    | []String                           | An array of event types that will be passed on the Channel.                | Must be objects with kind:EventType. |
 
 \*: Required
 
@@ -98,7 +96,6 @@ Subscription's call parameter._
 | Field        | Type         | Description                                                                                                                 | Limitations |
 | ------------ | ------------ | --------------------------------------------------------------------------------------------------------------------------- | ----------- |
 | sinkable     | Sinkable     | Address to the endpoint as top-level domain that will distribute traffic over the provided targets from inside the cluster. |             |
-| subscribable | Subscribable |                                                                                                                             |             |
 | conditions   | Conditions   | Standard Subscriptions                                                                                                      |             |
 
 ##### Conditions
@@ -125,7 +122,7 @@ Subscription's call parameter._
 
 ### group: eventing.knative.dev/v1alpha1
 
-_Describes a linkage between a Subscribable and a Targetable and/or Sinkable._
+_Describes a linkage between a Channel and a Targetable and/or Sinkable._
 
 ### Object Schema
 
@@ -181,24 +178,18 @@ or a Channel system that receives and delivers events._
 
 #### Spec
 
-| Field  | Type                                                                            | Description                                 | Limitations                |
-| ------ | ------------------------------------------------------------------------------- | ------------------------------------------- | -------------------------- |
-| type\* | [GroupKind](https://godoc.org/k8s.io/apimachinery/pkg/runtime/schema#GroupKind) | The type of the resource to be provisioned. | Must be Source or Channel. |
+| Field      | Type                                                                            | Description                                                                 | Limitations                |
+| ---------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------------------------- |
+| type\*     | [GroupKind](https://godoc.org/k8s.io/apimachinery/pkg/runtime/schema#GroupKind) | The type of the resource to be provisioned.                                 | Must be Source or Channel. |
+| parameters | runtime.RawExtension (JSON object)                                              | Description of the arguments able to be passed by the provisioned resource. | JSON Schema                |
 
 \*: Required
 
-#### Metadata
-
-##### Owner References
-
-- Owns EventTypes.
-
 #### Status
 
-| Field       | Type                      | Description                                                          | Limitations                                                                    |
-| ----------- | ------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| provisioned | []ProvisionedObjectStatus | Status of creation or adoption of each EventType and errors therein. | It is expected that a provisioner list all produced EventTypes, if applicable. |
-| conditions  | Conditions                | Provisioner conditions                                               |                                                                                |
+| Field       | Type                      | Description            | Limitations |
+| ----------- | ------------------------- | ---------------------- | ----------- |
+| conditions  | Conditions                | Provisioner conditions |             |
 
 ##### Conditions
 
@@ -208,60 +199,6 @@ or a Channel system that receives and delivers events._
 
 - Source created
 - Source deleted
-- Event types installed
-
-### Life Cycle
-
-| Action | Reactions                                                                       | Limitations                                                                                              |
-| ------ | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Create | Creates and owns EventTypes produced, or adds Owner ref to existing EventTypes. | Verifies Json Schema provided by existing EventTypes; Not allowed to edit EventType if previously Owned; |
-| Update | Synchronizes EventTypes.                                                        |                                                                                                          |
-| Delete | Removes Owner ref from EventTypes.                                              |                                                                                                          |
-
----
-
-## kind: EventType
-
-NOTE: EventType is out of scope for 0.1 release. This is future documentation.
-
-### group: eventing.knative.dev/v1alpha1
-
-_Describes a particular schema of Events which may be produced by one or more
-source systems._
-
-### Object Schema
-
-#### Spec
-
-| Field      | Type   | Description                                         | Limitations                    |
-| ---------- | ------ | --------------------------------------------------- | ------------------------------ |
-| jsonSchema | String | The Json Schema that represents an event in flight. | Only for JSON transport types. |
-
-#### Metadata
-
-##### Owner References
-
-EventType is owned by _Provisioners_. Each _Provisioner_ creates a
-non-controlling OwnerReference on the EventType resources it knows about.
-
-#### Status
-
-| Field          | Type    | Description                         | Limitations |
-| -------------- | ------- | ----------------------------------- | ----------- |
-| referenceCount | Integer | Number of Owners for this EventType |             |
-
-#### Events
-
-- **Owned.** When EventType has a new Provisioner Owner.
-- **Released.** When a Provisioner removes Ownership from the EventType.
-
-### Life Cycle
-
-| Action | Reactions | Limitations                                |
-| ------ | --------- | ------------------------------------------ |
-| Create |           |                                            |
-| Update |           |                                            |
-| Delete |           | Blocked until all provisioners release it. |
 
 ---
 
@@ -269,12 +206,11 @@ non-controlling OwnerReference on the EventType resources it knows about.
 
 ### ProvisionerReference
 
-| Field                | Type            | Description | Limitations                   |
-| -------------------- | --------------- | ----------- | ----------------------------- |
-| ref<sup>1</sup>      | ObjectReference |             |                               |
-| selector<sup>1</sup> | LabelSelector   |             | Must match only one resource. |
+| Field | Type            | Description | Limitations |
+| ----- | --------------- | ----------- | ----------- |
+| ref\* | ObjectReference |             |             |
 
-1: One of (name, selector), Required.
+\*: Required
 
 ### EndpointSpec
 
@@ -295,12 +231,6 @@ non-controlling OwnerReference on the EventType resources it knows about.
 | reason   | String | Detailed description describing current relationship status. |             |
 
 \*: Required
-
-### Subscribable
-
-| Field       | Type            | Description                      | Limitations |
-| ----------- | --------------- | -------------------------------- | ----------- |
-| channelable | ObjectReference | The channel used to emit events. |             |
 
 ### Channelable
 
