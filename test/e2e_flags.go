@@ -20,6 +20,7 @@ package test
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"path"
 
@@ -54,4 +55,9 @@ func initializeEventingFlags() *EventingEnvironmentFlags {
 	}
 
 	return &f
+}
+
+// ImagePath returns an image path using the configured image repo and tag.
+func ImagePath(name string) string {
+	return fmt.Sprintf("%s/%s:%s", EventingFlags.DockerRepo, name, EventingFlags.Tag)
 }

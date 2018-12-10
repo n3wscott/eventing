@@ -18,7 +18,6 @@ package test
 // crd contains functions that construct boilerplate CRD definitions.
 
 import (
-	sourcesv1alpha1 "github.com/knative/eventing-sources/pkg/apis/sources/v1alpha1"
 	"github.com/knative/eventing/pkg/apis/eventing/v1alpha1"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -129,21 +128,6 @@ func Channel(name string, namespace string, provisioner *corev1.ObjectReference)
 	}
 }
 
-// KubernetesEventSource returns a KubernetesEventSource sinking to specified channel
-func KubernetesEventSource(name string, namespace string, targetNamespace string, serviceAccount string, channel *corev1.ObjectReference) *sourcesv1alpha1.KubernetesEventSource {
-	return &sourcesv1alpha1.KubernetesEventSource{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: sourcesv1alpha1.KubernetesEventSourceSpec{
-			Namespace:          targetNamespace,
-			ServiceAccountName: serviceAccount,
-			Sink:               channel,
-		},
-	}
-}
-
 // SubscriberSpecForRoute returns a SubscriberSpec for a given Knative Service.
 func SubscriberSpecForRoute(name string) *v1alpha1.SubscriberSpec {
 	return &v1alpha1.SubscriberSpec{
@@ -170,26 +154,40 @@ func Subscription(name string, namespace string, channel *corev1.ObjectReference
 	}
 }
 
-// NGinxPod returns nginx pod defined in given namespace
-func NGinxPod(namespace string) *corev1.Pod {
+// CloudEvent specifices the arguments for a CloudEvent sent by the sendevent
+// binary.
+type CloudEvent struct {
+	ID     string
+	Type   string
+	Source string
+	Data   string
+}
+
+// EventSenderPod creates a Pod that sends a single event to the given address.
+func EventSenderPod(name string, namespace string, address string, event CloudEvent) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "nginx",
+			Name:        name,
 			Namespace:   namespace,
 			Annotations: map[string]string{"sidecar.istio.io/inject": "true"},
 		},
 		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:  "nginx",
-					Image: "nginx:1.7.9",
-					Ports: []corev1.ContainerPort{
-						{
-							ContainerPort: 80,
-						},
-					},
+			Containers: []corev1.Container{{
+				Name:  "sendevent",
+				Image: ImagePath("sendevent"),
+				Args: []string{
+					"-event-id",
+					event.ID,
+					"-event-type",
+					event.Type,
+					"-source",
+					event.Source,
+					"-data",
+					event.Data,
+					address,
 				},
-			},
+			}},
+			RestartPolicy: corev1.RestartPolicyNever,
 		},
 	}
 }
