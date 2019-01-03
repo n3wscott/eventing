@@ -16,6 +16,8 @@ limitations under the License.
 package test
 
 import (
+	"log"
+
 	eventingv1alpha1 "github.com/knative/eventing/pkg/apis/eventing/v1alpha1"
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -55,6 +57,11 @@ func IsSubscriptionReady(s *eventingv1alpha1.Subscription) (bool, error) {
 // PodsRunning will check the status conditions of the pod list and return true
 // if all pods are Running.
 func PodsRunning(podList *corev1.PodList) (bool, error) {
+	var names []string
+	for _, p := range podList.Items {
+		names = append(names, p.Name)
+	}
+	log.Printf("Checking pods: %v", names)
 	for _, pod := range podList.Items {
 		if pod.Status.Phase != corev1.PodRunning && pod.Status.Phase != corev1.PodSucceeded {
 			return false, nil

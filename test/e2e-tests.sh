@@ -34,9 +34,20 @@ readonly E2E_TEST_NAMESPACE=e2etest-knative-eventing
 # Helper functions.
 
 function teardown() {
+  echo "teardown"
   teardown_events_test_resources
+  
+  # Delete channel CRD first, since channels may have finalizers requiring their
+  # controllers to be running.
+  # Deleting the CRDs is problematic in a cluster that already exists. Channels
+  # with finalizers may never be deleted if their controller is missing.
+  
 #  ko delete --ignore-not-found=true -f config/provisioners/in-memory-channel/in-memory-channel.yaml
-  ko delete --ignore-not-found=true -f config/
+  # Iterating through files because doing it in one command seems to hang sometimes. 
+  for file in config/*.yaml; do
+    kubectl delete --ignore-not-found=true -f $file
+  done
+  #kubectl delete --ignore-not-found=true -f config/
 
   wait_until_object_does_not_exist namespaces knative-eventing
 
@@ -65,7 +76,7 @@ if (( ! USING_EXISTING_CLUSTER )); then
 fi
 
 # Clean up anything that might still be around
-teardown_events_test_resources
+#teardown_events_test_resources
 
 # Fail fast during setup.
 set -o errexit

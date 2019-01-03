@@ -52,6 +52,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	fmt.Println("Sleeping for 5 seconds")
+	//TODO maybe required for istio warmup?
+	time.Sleep(5 * time.Second)
+	fmt.Println("Done sleeping")
+
 	webhook := flag.Arg(0)
 
 	var untyped map[string]interface{}
@@ -66,7 +71,7 @@ func main() {
 		fmt.Printf("Failed to create request: %s", err)
 		os.Exit(1)
 	}
-
+	fmt.Printf("requesting: %#v", req)
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		fmt.Printf("Failed to send event to %s: %s\n", webhook, err)

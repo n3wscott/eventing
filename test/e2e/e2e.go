@@ -71,6 +71,7 @@ func TearDown(clients *test.Clients, cleaner *test.Cleaner, logger *logging.Base
 // The Config object will serve requests to a container started from the image at imagePath.
 func CreateRouteAndConfig(clients *test.Clients, logger *logging.BaseLogger, cleaner *test.Cleaner, name string, imagePath string) error {
 	configurations := clients.Serving.ServingV1alpha1().Configurations(pkgTest.Flags.Namespace)
+	logger.Infof("configuration: %#v", test.Configuration(name, pkgTest.Flags.Namespace, imagePath))
 	config, err := configurations.Create(
 		test.Configuration(name, pkgTest.Flags.Namespace, imagePath))
 	if err != nil {
@@ -79,6 +80,7 @@ func CreateRouteAndConfig(clients *test.Clients, logger *logging.BaseLogger, cle
 	cleaner.Add(servingV1alpha1.SchemeGroupVersion.Group, servingV1alpha1.SchemeGroupVersion.Version, "configurations", pkgTest.Flags.Namespace, config.ObjectMeta.Name)
 
 	routes := clients.Serving.ServingV1alpha1().Routes(pkgTest.Flags.Namespace)
+	logger.Infof("route: %#v", test.Route(name, pkgTest.Flags.Namespace, name))
 	route, err := routes.Create(
 		test.Route(name, pkgTest.Flags.Namespace, name))
 	if err != nil {
@@ -216,6 +218,17 @@ func CreateServiceAccountAndBinding(clients *test.Clients, name string, logger *
 	return nil
 }
 
+// CreateService will create a Service
+func CreateService(clients *test.Clients, svc *corev1.Service, logger *logging.BaseLogger, cleaner *test.Cleaner) error {
+	svcs := clients.Kube.Kube.CoreV1().Services(svc.GetNamespace())
+	res, err := svcs.Create(svc)
+	if err != nil {
+		return err
+	}
+	cleaner.Add(corev1.SchemeGroupVersion.Group, corev1.SchemeGroupVersion.Version, "services", res.ObjectMeta.Namespace, res.ObjectMeta.Name)
+	return nil
+}
+
 // CreatePod will create a Pod
 func CreatePod(clients *test.Clients, pod *corev1.Pod, logger *logging.BaseLogger, cleaner *test.Cleaner) error {
 	pods := clients.Kube.Kube.CoreV1().Pods(pod.GetNamespace())
@@ -228,8 +241,8 @@ func CreatePod(clients *test.Clients, pod *corev1.Pod, logger *logging.BaseLogge
 }
 
 // PodLogs returns Pod logs for given Pod and Container
-func PodLogs(clients *test.Clients, podName string, containerName string, logger *logging.BaseLogger) ([]byte, error) {
-	pods := clients.Kube.Kube.CoreV1().Pods(pkgTest.Flags.Namespace)
+func PodLogs(clients *test.Clients, podName string, containerName string, namespace string, logger *logging.BaseLogger) ([]byte, error) {
+	pods := clients.Kube.Kube.CoreV1().Pods(namespace)
 	podList, err := pods.List(metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -239,6 +252,7 @@ func PodLogs(clients *test.Clients, podName string, containerName string, logger
 			result := pods.GetLogs(pod.Name, &corev1.PodLogOptions{
 				Container: containerName,
 			}).Do()
+			logger.Infof("logs request result: %#v", result)
 			return result.Raw()
 		}
 	}
@@ -247,9 +261,9 @@ func PodLogs(clients *test.Clients, podName string, containerName string, logger
 
 // WaitForLogContent waits until logs for given Pod/Container include the given content.
 // If the content is not present within timeout it returns error.
-func WaitForLogContent(clients *test.Clients, logger *logging.BaseLogger, podName string, containerName string, content string) error {
+func WaitForLogContent(clients *test.Clients, logger *logging.BaseLogger, podName string, containerName string, namespace string, content string) error {
 	return wait.PollImmediate(interval, timeout, func() (bool, error) {
-		logs, err := PodLogs(clients, podName, containerName, logger)
+		logs, err := PodLogs(clients, podName, containerName, namespace, logger)
 		if err != nil {
 			return true, err
 		}

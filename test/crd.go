@@ -187,7 +187,76 @@ func EventSenderPod(name string, namespace string, address string, event CloudEv
 					address,
 				},
 			}},
+			//TODO restart on failure?
 			RestartPolicy: corev1.RestartPolicyNever,
 		},
 	}
 }
+
+// EventLoggerPod creates a Pod that logs events received.
+func EventLoggerPod(name string, namespace string, selector map[string]string) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name,
+			Namespace:   namespace,
+			Labels:      selector,
+			Annotations: map[string]string{"sidecar.istio.io/inject": "true"},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:  "logevents",
+				Image: ImagePath("logevents"),
+			}},
+			RestartPolicy: corev1.RestartPolicyAlways,
+		},
+	}
+}
+
+// Service creates a Kubernetes Service with the given name, namespace, and
+// selector. Port 80 is assumed.
+func Service(name string, namespace string, selector map[string]string) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: selector,
+			Ports: []corev1.ServicePort{{
+				Name:     "http",
+				Port:     80,
+				Protocol: corev1.ProtocolTCP,
+			}},
+		},
+	}
+}
+
+// // EventLoggerPodAndService creates a Pod that logs events and a Service
+// // that
+// func EventLoggerPodAndService(name string, namespace string, address string, event CloudEvent) *corev1.Pod {
+// 	return &corev1.Pod{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name:        name,
+// 			Namespace:   namespace,
+// 			Annotations: map[string]string{"sidecar.istio.io/inject": "true"},
+// 		},
+// 		Spec: corev1.PodSpec{
+// 			Containers: []corev1.Container{{
+// 				Name:  "sendevent",
+// 				Image: ImagePath("sendevent"),
+// 				Args: []string{
+// 					"-event-id",
+// 					event.ID,
+// 					"-event-type",
+// 					event.Type,
+// 					"-source",
+// 					event.Source,
+// 					"-data",
+// 					event.Data,
+// 					address,
+// 				},
+// 			}},
+// 			RestartPolicy: corev1.RestartPolicyNever,
+// 		},
+// 	}
+// }
