@@ -42,17 +42,24 @@ func TestSingleEvent(t *testing.T) {
 	clients, cleaner := Setup(t, logger)
 	defer TearDown(clients, cleaner, logger)
 
-	logger.Infof("Creating Logger Pod and Service")
+	logger.Infof("Creating Logger Pod")
 	selector := map[string]string{"e2etest": uuid.NewUUID()}
 	subscriberPod := test.EventLoggerPod(routeName, ns, selector)
 	if err := CreatePod(clients, subscriberPod, logger, cleaner); err != nil {
 		t.Fatalf("Failed to create event logger pod: %v", err)
 	}
-	//TODO can use pod ip?
-	subscriberSvc := test.Service(routeName, ns, selector)
-	if err := CreateService(clients, subscriberSvc, logger, cleaner); err != nil {
-		t.Fatalf("Failed to create event logger service: %v", err)
+	if err := WaitForAllPodsRunning(clients, logger, ns); err != nil {
+		t.Fatalf("Error waiting for logger pod to become running: %v", err)
 	}
+	logger.Infof("Logger pod running")
+	//TODO can use pod ip?
+	// subscriberSvc := test.Service(routeName, ns, selector)
+	// if err := CreateService(clients, subscriberSvc, logger, cleaner); err != nil {
+	// 	t.Fatalf("Failed to create event logger service: %v", err)
+	// }
+
+	// Reload subscriberPod to get IP
+	subscriberPod = clients.Kube.Kube.CoreV1().Pods(subscriberPod.Namespace).Get(subscriberPod.Name, metav1.GetOptions{})
 
 	logger.Infof("Creating Channel and Subscription")
 	channel := test.Channel(channelName, ns, test.ClusterChannelProvisioner(provisionerName))
@@ -76,11 +83,6 @@ func TestSingleEvent(t *testing.T) {
 	if err := CreatePod(clients, pod, logger, cleaner); err != nil {
 		t.Fatalf("Failed to create event sender pod: %v", err)
 	}
-
-	if err := WaitForAllPodsRunning(clients, logger, ns); err != nil {
-		t.Fatalf("Error waiting for pods to become running: %v", err)
-	}
-	logger.Infof("All pods running")
 
 	if err := WaitForLogContent(clients, logger, routeName, loggerPod.Spec.Containers[0].Name, ns, body); err != nil {
 		t.Fatalf("String %q not found in logs of logger pod %q: %v", body, routeName, err)
