@@ -35,6 +35,7 @@ rules:
       - eventing.knative.dev
     resources:
       - channels
+      - channels/status
       - clusterchannelprovisioners
     verbs:
       - get
@@ -77,7 +78,7 @@ rules:
       - update
 ---
 
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: kafka-channel-controller-manage
@@ -101,13 +102,16 @@ data:
   bootstrap_servers: kafkabroker.kafka:9092
 ---
 
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kafka-channel-controller
   namespace: knative-eventing
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-channel-controller
   template:
     metadata:
       labels:
@@ -151,7 +155,7 @@ rules:
 
 ---
 
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: kafka-channel-dispatcher

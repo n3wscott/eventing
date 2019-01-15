@@ -36,18 +36,7 @@ readonly E2E_TEST_NAMESPACE=e2etest-knative-eventing
 function teardown() {
   echo "teardown"
   teardown_events_test_resources
-  
-  # Delete channel CRD first, since channels may have finalizers requiring their
-  # controllers to be running.
-  # Deleting the CRDs is problematic in a cluster that already exists. Channels
-  # with finalizers may never be deleted if their controller is missing.
-  
-#  ko delete --ignore-not-found=true -f config/provisioners/in-memory-channel/in-memory-channel.yaml
-  # Iterating through files because doing it in one command seems to hang sometimes. 
-  for file in config/*.yaml; do
-    kubectl delete --ignore-not-found=true -f $file
-  done
-  #kubectl delete --ignore-not-found=true -f config/
+  ko delete --ignore-not-found=true -f config/
 
   wait_until_object_does_not_exist namespaces knative-eventing
 
@@ -56,52 +45,46 @@ function teardown() {
 }
 
 function setup_events_test_resources() {
-  kubectl create namespace $E2E_TEST_NAMESPACE
+  kubectl create namespace ${E2E_TEST_NAMESPACE}
 }
 
 function teardown_events_test_resources() {
   # Delete the test namespace
   echo "Deleting namespace $E2E_TEST_NAMESPACE"
-  kubectl --ignore-not-found=true delete namespace $E2E_TEST_NAMESPACE
-  wait_until_object_does_not_exist namespaces $E2E_TEST_NAMESPACE
+  kubectl --ignore-not-found=true delete namespace ${E2E_TEST_NAMESPACE}
+  wait_until_object_does_not_exist namespaces ${E2E_TEST_NAMESPACE} || return 1
 }
 
 # Script entry point.
 
 initialize $@
 
-# Install Knative Serving if not using an existing cluster
-if (( ! USING_EXISTING_CLUSTER )); then
-  start_latest_knative_serving || fail_test
-fi
-
-# Clean up anything that might still be around
-#teardown_events_test_resources
-
-# Fail fast during setup.
-set -o errexit
-set -o pipefail
-
-header "Standing up Knative Eventing"
-export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
-ko resolve -f config/
-ko apply -f config/
-wait_until_pods_running knative-eventing
-
-header "Standing up In-Memory ClusterChannelProvisioner"
-ko resolve -f config/provisioners/in-memory-channel/in-memory-channel.yaml
-ko apply -f config/provisioners/in-memory-channel/in-memory-channel.yaml
-wait_until_pods_running knative-eventing
-
-# Publish test images
-$(dirname $0)/upload-test-images.sh e2e
+header "Setting up environment"
 
 # Handle test failures ourselves, so we can dump useful info.
 set +o errexit
 set +o pipefail
 
+# Install Knative Serving if not using an existing cluster
+if (( ! USING_EXISTING_CLUSTER )); then
+  start_latest_knative_serving || fail_test "Serving did not come up"
+fi
+
+# Clean up anything that might still be around
+#teardown_events_test_resources || fail_test "Error cleaning up test resources"
+
+ko apply -f config/
+wait_until_pods_running knative-eventing || fail_test "Eventing did not come up (1)"
+
+subheader "Standing up In-Memory ClusterChannelProvisioner"
+ko apply -f config/provisioners/in-memory-channel/in-memory-channel.yaml
+wait_until_pods_running knative-eventing || fail_test "Eventing did not come up (2)"
+
+# Publish test images
+$(dirname $0)/upload-test-images.sh e2e || fail_test "Error uploading test images"
+
 # Setup resources common to all eventing tests
-setup_events_test_resources
+setup_events_test_resources|| fail_test "Error setting up test resources"
 
 go_test_e2e ./test/e2e || fail_test
 

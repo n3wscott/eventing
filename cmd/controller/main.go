@@ -39,9 +39,8 @@ import (
 )
 
 const (
-	threadsPerController = 2
-	metricsScrapeAddr    = ":9090"
-	metricsScrapePath    = "/metrics"
+	metricsScrapeAddr = ":9090"
+	metricsScrapePath = "/metrics"
 )
 
 var (

@@ -37,6 +37,7 @@ rules:
       - eventing.knative.dev
     resources:
       - channels
+      - channels/status
       - clusterchannelprovisioners
     verbs:
       - get
@@ -94,7 +95,7 @@ rules:
 
 ---
 
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: in-memory-channel-controller
@@ -110,7 +111,7 @@ roleRef:
 
 ---
 
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: in-memory-channel-controller
@@ -157,7 +158,7 @@ rules:
 
 ---
 
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: in-memory-channel-dispatcher
@@ -173,7 +174,7 @@ roleRef:
 
 ---
 
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: in-memory-channel-dispatcher
