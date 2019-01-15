@@ -19,6 +19,7 @@ package e2e
 
 import (
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"testing"
 
 	"github.com/knative/eventing/test"
@@ -40,20 +41,21 @@ const (
 
 func TestSingleEvent(t *testing.T) {
 	logger := logging.GetContextLogger("TestSingleEvent")
-	ns := pkgTest.Flags.Namespace
-	logger.Infof("Namespace: %s", ns)
 
 	clients, cleaner := Setup(t, logger)
 	defer TearDown(clients, cleaner, logger)
 
-	if ns == "" {
-		ns = DefaultTestNamespace
+	ns := pkgTest.Flags.Namespace
+	logger.Infof("Namespace: %s", ns)
 
-		nsSpec := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
+	nsSpec, err := clients.Kube.Kube.CoreV1().Namespaces().Get(ns, metav1.GetOptions{})
+
+	if err != nil && errors.IsNotFound(err) {
+		nsSpec = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
 		logger.Infof("Creating Namespace: %s", ns)
-		_, err := clients.Kube.Kube.CoreV1().Namespaces().Create(nsSpec)
+		nsSpec, err = clients.Kube.Kube.CoreV1().Namespaces().Create(nsSpec)
 		if err != nil {
-			logger.Infof("Failed to create Namespace: %s; %v", ns, err)
+			t.Fatalf("Failed to create Namespace: %s; %v", ns, err)
 		} else {
 			defer func() {
 				clients.Kube.Kube.CoreV1().Namespaces().Delete(nsSpec.Name, nil)
@@ -78,8 +80,9 @@ func TestSingleEvent(t *testing.T) {
 	}
 
 	// Reload subscriberPod to get IP
-	subscriberPod, err := clients.Kube.Kube.CoreV1().Pods(subscriberPod.Namespace).Get(subscriberPod.Name, metav1.GetOptions{})
+	subscriberPod, err = clients.Kube.Kube.CoreV1().Pods(subscriberPod.Namespace).Get(subscriberPod.Name, metav1.GetOptions{})
 	if err != nil {
+		t.Fatalf("Failed to get subscriber pod: %v", err)
 	}
 
 	logger.Infof("Creating Channel and Subscription")

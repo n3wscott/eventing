@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -13,96 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
-// Implements a simple utility for sending a JSON-encoded sample event.
-//package main
-//
-//import (
-//	"flag"
-//	"fmt"
-//	"github.com/knative/eventing/test"
-//	"io/ioutil"
-//	"net/http"
-//	"os"
-//	"strconv"
-//	"time"
-//
-//	"github.com/knative/pkg/cloudevents"
-//
-//	"github.com/google/uuid"
-//)
-//
-//var (
-//	context cloudevents.EventContext
-//	webhook string
-//	data    string
-//)
-//
-//func init() {
-//	flag.StringVar(&context.EventID, "event-id", "", "Event ID to use. Defaults to a generated UUID")
-//	flag.StringVar(&context.EventType, "event-type", "google.events.action.demo", "The Event Type to use.")
-//	flag.StringVar(&context.Source, "source", "", "Source URI to use. Defaults to the current machine's hostname")
-//	flag.StringVar(&data, "data", `{"hello": "world!"}`, "Event data")
-//}
-//
-//func main() {
-//	flag.Parse()
-//
-//	if len(flag.Args()) != 1 {
-//		fmt.Println("Usage: sendevent [flags] <webhook>\nFor details about valid flags, run sendevent --help")
-//		os.Exit(1)
-//	}
-//
-//	fmt.Println("Sleeping for 5 seconds")
-//	//TODO maybe required for istio warmup?
-//	time.Sleep(5 * time.Second)
-//	fmt.Println("Done sleeping")
-//
-//	webhook := flag.Arg(0)
-//
-//	//var untyped map[string]string
-//	//if err := json.Unmarshal([]byte(data), &untyped); err != nil {
-//	//	fmt.Println("Currently sendevent only supports JSON event data")
-//	//	os.Exit(1)
-//	//}
-//
-//	hb := &test.Heartbeat{
-//		Sequence: 0,
-//		Label:    "hello",
-//	}
-//
-//	//fillEventContext(&context)
-//
-//	//req, err := cloudevents.NewRequest(webhook, hb, context)
-//	req, err := cloudevents.Binary.NewRequest(webhook, hb, context)
-//	if err != nil {
-//		fmt.Printf("Failed to create request: %s", err)
-//		os.Exit(1)
-//	}
-//	fmt.Printf("requesting: %#v", req)
-//	resp, err := http.DefaultClient.Do(req)
-//	defer resp.Body.Close()
-//	if err != nil {
-//		fmt.Printf("Failed to send event to %s: %s\n", webhook, err)
-//		os.Exit(1)
-//	}
-//	fmt.Printf("Got response from %s\n%s\n", webhook, resp.Status)
-//	if resp.Header.Get("Content-Length") != "" {
-//		bytes, _ := ioutil.ReadAll(resp.Body)
-//		fmt.Println(string(bytes))
-//	}
-//}
-//
-//// Creates a CloudEvent Context
-//func cloudEventsContext() *cloudevents.EventContext {
-//	return &cloudevents.EventContext{
-//		CloudEventsVersion: cloudevents.CloudEventsVersion,
-//		EventType:          "dev.knative.eventing.e2e.heartbeats",
-//		EventID:            uuid.New().String(),
-//		Source:             "e2etest-knative-eventing",
-//		EventTime:          time.Now(),
-//	}
-//}
 
 package main
 
@@ -130,24 +40,38 @@ var (
 	eventType string
 	source    string
 	periodStr string
+	delayStr  string
 )
 
 func init() {
-	flag.StringVar(&sink, "sink", "", "the host url to heartbeat to")
-	flag.StringVar(&data, "data", "", "special data")
+	flag.StringVar(&sink, "sink", "", "The sink url for the message destination.")
+	flag.StringVar(&data, "data", "", "Special data.")
 	flag.StringVar(&eventID, "event-id", "", "Event ID to use. Defaults to a generated UUID")
 	flag.StringVar(&eventType, "event-type", "knative.eventing.test.e2e", "The Event Type to use.")
-	flag.StringVar(&source, "source", "localhost", "Source URI to use. Defaults to the current machine's hostname")
-	flag.StringVar(&periodStr, "period", "5", "the number of seconds between messages")
+	flag.StringVar(&source, "source", "", "Source URI to use. Defaults to the current machine's hostname")
+	flag.StringVar(&periodStr, "period", "5", "The number of seconds between messages.")
+	flag.StringVar(&delayStr, "delay", "5", "The number of seconds to wait before sending messages.")
+}
+
+func parseDurationStr(durationStr string, defaultDuration int) time.Duration {
+	var duration time.Duration
+	if d, err := strconv.Atoi(durationStr); err != nil {
+		duration = time.Duration(defaultDuration) * time.Second
+	} else {
+		duration = time.Duration(d) * time.Second
+	}
+	return duration
 }
 
 func main() {
 	flag.Parse()
-	var period time.Duration
-	if p, err := strconv.Atoi(periodStr); err != nil {
-		period = time.Duration(5) * time.Second
-	} else {
-		period = time.Duration(p) * time.Second
+	period := parseDurationStr(periodStr, 5)
+	delay := parseDurationStr(delayStr, 5)
+
+	if delay > 0 {
+		log.Printf("will sleep for %s", delay)
+		time.Sleep(delay)
+		log.Printf("awake, contining")
 	}
 
 	if eventID == "" {
@@ -197,7 +121,7 @@ func postMessage(target string, hb *Heartbeat) error {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("Failed to do POST: %v", err)
+		log.Printf("failed to do POST: %v", err)
 		return err
 	}
 	defer resp.Body.Close()
