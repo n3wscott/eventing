@@ -39,12 +39,9 @@ const (
 	routeName        = "e2e-singleevent-route"
 )
 
-func TestSingleEvent(t *testing.T) {
+func namespaceExists(t *testing.T, clients *test.Clients) (string, func()) {
 	logger := logging.GetContextLogger("TestSingleEvent")
-
-	clients, cleaner := Setup(t, logger)
-	defer TearDown(clients, cleaner, logger)
-
+	shutdown := func() {}
 	ns := pkgTest.Flags.Namespace
 	logger.Infof("Namespace: %s", ns)
 
@@ -57,11 +54,26 @@ func TestSingleEvent(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to create Namespace: %s; %v", ns, err)
 		} else {
-			defer func() {
+			shutdown = func() {
 				clients.Kube.Kube.CoreV1().Namespaces().Delete(nsSpec.Name, nil)
-			}()
+			}
 		}
 	}
+	return ns, shutdown
+}
+
+func TestSingleEvent(t *testing.T) {
+	logger := logging.GetContextLogger("TestSingleEvent")
+
+	clients, cleaner := Setup(t, logger)
+	defer TearDown(clients, cleaner, logger)
+
+	// verify namespace
+
+	ns, cleanupNS := namespaceExists(t, clients)
+	defer cleanupNS()
+
+	// create logger pod
 
 	logger.Infof("creating subscriber pod")
 	selector := map[string]string{"e2etest": string(uuid.NewUUID())}
@@ -80,10 +92,12 @@ func TestSingleEvent(t *testing.T) {
 	}
 
 	// Reload subscriberPod to get IP
-	subscriberPod, err = clients.Kube.Kube.CoreV1().Pods(subscriberPod.Namespace).Get(subscriberPod.Name, metav1.GetOptions{})
+	subscriberPod, err := clients.Kube.Kube.CoreV1().Pods(subscriberPod.Namespace).Get(subscriberPod.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get subscriber pod: %v", err)
 	}
+
+	// create channel
 
 	logger.Infof("Creating Channel and Subscription")
 	channel := test.Channel(channelName, ns, test.ClusterChannelProvisioner(provisionerName))
@@ -94,6 +108,8 @@ func TestSingleEvent(t *testing.T) {
 	if err := WithChannelAndSubscriptionReady(clients, channel, sub, logger, cleaner); err != nil {
 		t.Fatalf("The Channel or Subscription were not marked as Ready: %v", err)
 	}
+
+	// create sender pod
 
 	logger.Infof("Creating event sender")
 	body := fmt.Sprintf("TestSingleEvent %s", uuid.NewUUID())
