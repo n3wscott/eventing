@@ -41,6 +41,7 @@ var (
 	source    string
 	periodStr string
 	delayStr  string
+	maxMsgStr string
 )
 
 func init() {
@@ -51,6 +52,7 @@ func init() {
 	flag.StringVar(&source, "source", "", "Source URI to use. Defaults to the current machine's hostname")
 	flag.StringVar(&periodStr, "period", "5", "The number of seconds between messages.")
 	flag.StringVar(&delayStr, "delay", "5", "The number of seconds to wait before sending messages.")
+	flag.StringVar(&maxMsgStr, "max-messages", "1", "The number of messages to attempt to send. 0 for unlimited.")
 }
 
 func parseDurationStr(durationStr string, defaultDuration int) time.Duration {
@@ -67,6 +69,11 @@ func main() {
 	flag.Parse()
 	period := parseDurationStr(periodStr, 5)
 	delay := parseDurationStr(delayStr, 5)
+
+	maxMsg := 1
+	if m, err := strconv.Atoi(maxMsgStr); err != nil {
+		maxMsg = m
+	}
 
 	if delay > 0 {
 		log.Printf("will sleep for %s", delay)
@@ -92,6 +99,10 @@ func main() {
 		postMessage(sink, hb)
 		// Wait for next tick
 		<-ticker.C
+		// Only send a limited number of messages.
+		if maxMsg != 0 && maxMsg == hb.Sequence {
+			return
+		}
 	}
 }
 
