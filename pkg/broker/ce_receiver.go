@@ -17,19 +17,15 @@
 package broker
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"io/ioutil"
+	"github.com/cloudevents/sdk-go/pkg/cloudevents"
+	ceclient "github.com/cloudevents/sdk-go/pkg/cloudevents/client"
+	cecontext "github.com/cloudevents/sdk-go/pkg/cloudevents/context"
+	cehttp "github.com/cloudevents/sdk-go/pkg/cloudevents/transport/http"
 	"net/http"
 	"net/url"
-	"reflect"
-
-	"github.com/cloudevents/sdk-go/pkg/cloudevents"
-
-	cehttp "github.com/cloudevents/sdk-go/pkg/cloudevents/transport/http"
 
 	eventingv1alpha1 "github.com/knative/eventing/pkg/apis/eventing/v1alpha1"
 	"github.com/knative/eventing/pkg/provisioners"
@@ -48,36 +44,24 @@ type Receiver struct {
 	logger *zap.Logger
 	client client.Client
 
-	port int
+	port       int
+	httpClient *http.Client
 
-	httpClient HTTPDoer
-	codec      cehttp.Codec
+	ce ceclient.Client
 }
-
-type HTTPDoer interface {
-	Do(*http.Request) (*http.Response, error)
-}
-
-var _ HTTPDoer = &http.Client{}
 
 // New creates a new Receiver and its associated MessageReceiver. The caller is responsible for
 // Start()ing the returned MessageReceiver.
 func New(logger *zap.Logger, client client.Client) *Receiver {
+
 	r := &Receiver{
-		logger: logger,
-		client: client,
-
-		port: defaultPort,
-
+		logger:     logger,
+		client:     client,
+		port:       defaultPort,
 		httpClient: &http.Client{},
-		codec: cehttp.Codec{
-			Encoding: cehttp.BinaryV01,
-		},
 	}
 	return r
 }
-
-var _ http.Handler = &Receiver{}
 
 // Start begins to receive messages for the receiver.
 //
@@ -87,123 +71,64 @@ var _ http.Handler = &Receiver{}
 //
 // This method will block until a message is received on the stop channel.
 func (r *Receiver) Start(stopCh <-chan struct{}) error {
-	svr := r.start()
-	defer r.stop(svr)
+	if err := r.start(); err != nil {
+		return err
+	}
 
 	<-stopCh
+
+	// TODO: stop the ce client.
 	return nil
 }
 
-func (r *Receiver) start() *http.Server {
-	srv := &http.Server{
-		Addr:    fmt.Sprintf(":%d", r.port),
-		Handler: r,
-	}
-	r.logger.Info("Starting web server", zap.String("addr", srv.Addr))
-	go func() {
-		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-			r.logger.Error("HttpServer: ListenAndServe() error", zap.Error(err))
+func (r *Receiver) start() error {
+
+	if r.ce == nil {
+		c, err := ceclient.NewHTTPClient(
+			ceclient.WithHTTPPort(r.port),
+			//ceclient.WithHTTPBinaryEncoding(),  // <-- use if you want to not change the incoming cloudevent versions
+			ceclient.WithHTTPEncoding(cehttp.BinaryV01), // <-- forces all output to be v0.1
+			ceclient.WithHTTPClient(r.httpClient),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create cloudevents http client, %s", err.Error())
 		}
-	}()
-	return srv
+		r.ce = c
+	}
+
+	if err := r.ce.StartReceiver(context.TODO(), r.Receive); err != nil {
+		return fmt.Errorf("failed to start cloudevents receiver, %s", err.Error())
+	}
+
+	return nil
 }
 
-func (r *Receiver) stop(srv *http.Server) {
-	r.logger.Info("Shutdown web server")
-	if err := srv.Shutdown(nil); err != nil {
-		r.logger.Error("Error shutting down the HTTP Server", zap.Error(err))
+func (r *Receiver) Receive(event cloudevents.Event) (*cloudevents.Event, error) {
+	var tctx *cehttp.TransportContext
+	if event.TransportContext != nil {
+		var ok bool
+		if tctx, ok = event.TransportContext.(*cehttp.TransportContext); !ok {
+			r.logger.Error("Unable to cast TransportContext from event.")
+			return nil, fmt.Errorf("unable to get transport context from event")
+		}
 	}
-}
-
-func (r *Receiver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	if req.URL.Path != "/" {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-	if req.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
-	triggerRef, err := provisioners.ParseChannel(req.Host)
+	triggerRef, err := provisioners.ParseChannel(tctx.Host)
 	if err != nil {
-		r.logger.Error("Unable to parse host as a trigger", zap.Error(err), zap.String("host", req.Host))
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error":"Bad Host"}`))
-		return
-	}
-
-	event, err := r.decodeHTTPRequest(req)
-	if err != nil {
-		r.logger.Error("Error decoding HTTP Request", zap.Error(err))
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		r.logger.Error("Unable to parse host as a trigger", zap.Error(err), zap.String("host", tctx.Host))
+		return nil, fmt.Errorf("bad host")
 	}
 
 	responseEvent, err := r.sendEvent(triggerRef, event)
 	if err != nil {
 		r.logger.Error("Error sending the event", zap.Error(err))
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	if responseEvent == nil {
-		w.WriteHeader(http.StatusAccepted)
-		return
-	}
-
-	encodedEvent, err := r.codec.Encode(*event)
-	if err != nil {
-		r.logger.Error("Error encoding the response event", zap.Error(err))
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	msg, ok := encodedEvent.(*cehttp.Message)
-	if !ok {
-		r.logger.Error("Error casting the encoded response event", zap.Error(err), zap.Any("encodedEvent", reflect.TypeOf(encodedEvent)))
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	for n, v := range msg.Header {
-		w.Header().Del(n)
-		for _, s := range v {
-			w.Header().Add(n, s)
-		}
-	}
-	w.WriteHeader(http.StatusAccepted)
-	_, err = w.Write(msg.Body)
-	if err != nil {
-		r.logger.Error("Error writing the response body", zap.Error(err))
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-}
-
-func (r *Receiver) decodeHTTPRequest(req *http.Request) (*cloudevents.Event, error) {
-	return r.decodeHTTP(req.Header, req.Body)
-}
-
-func (r *Receiver) decodeHTTPResponse(resp *http.Response) (*cloudevents.Event, error) {
-	// The HTTP Response could be anything, so just assume that if it does not parse as a
-	// CloudEvent, then it isn't a CloudEvent.
-	e, _ := r.decodeHTTP(resp.Header, resp.Body)
-	return e, nil
-}
-
-func (r *Receiver) decodeHTTP(headers http.Header, bodyReadCloser io.ReadCloser) (*cloudevents.Event, error) {
-	body, err := ioutil.ReadAll(bodyReadCloser)
-	if err != nil {
 		return nil, err
 	}
-	msg := &cehttp.Message{
-		Header: headers,
-		Body:   body,
-	}
 
-	return r.codec.Decode(msg)
+	return responseEvent, err
 }
 
 // sendEvent sends an event to a subscriber if the trigger filter passes.
-func (r *Receiver) sendEvent(trigger provisioners.ChannelReference, event *cloudevents.Event) (*cloudevents.Event, error) {
+func (r *Receiver) sendEvent(trigger provisioners.ChannelReference, event cloudevents.Event) (*cloudevents.Event, error) {
 	r.logger.Debug("Received message", zap.Any("triggerRef", trigger))
 	ctx := context.Background()
 
@@ -218,8 +143,7 @@ func (r *Receiver) sendEvent(trigger provisioners.ChannelReference, event *cloud
 		r.logger.Error("Unable to read subscriberURI")
 		return nil, errors.New("unable to read subscriberURI")
 	}
-	subscriberURI, err := url.Parse(subscriberURIString)
-	if err != nil {
+	if _, err := url.Parse(subscriberURIString); err != nil {
 		r.logger.Error("Unable to parse subscriberURI", zap.Error(err), zap.String("subscriberURIString", subscriberURIString))
 		return nil, err
 	}
@@ -229,48 +153,8 @@ func (r *Receiver) sendEvent(trigger provisioners.ChannelReference, event *cloud
 		return nil, nil
 	}
 
-	return r.dispatch(event, subscriberURI)
-}
-
-func (r *Receiver) dispatch(event *cloudevents.Event, uri *url.URL) (*cloudevents.Event, error) {
-	encodedEvent, err := r.codec.Encode(*event)
-	if err != nil {
-		return nil, err
-	}
-	msg, ok := encodedEvent.(*cehttp.Message)
-	if !ok {
-		return nil, errors.New("msg was not a cehttp.Message")
-	}
-
-	req, err := http.NewRequest(http.MethodPost, uri.String(), bytes.NewReader(msg.Body))
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header = msg.Header
-	res, err := r.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if res == nil {
-		// I don't think this is actually reachable with http.Client.Do(), but just to be sure we
-		// check anyway.
-		return nil, errors.New("non-error nil result from http.Client.Do()")
-	}
-
-	defer res.Body.Close()
-	if isFailure(res.StatusCode) {
-		// reject non-successful responses
-		return nil, fmt.Errorf("unexpected HTTP response, expected 2xx, got %d", res.StatusCode)
-	}
-
-	return r.decodeHTTPResponse(res)
-}
-
-// isFailure returns true if the status code is not a successful HTTP status.
-func isFailure(statusCode int) bool {
-	return statusCode < http.StatusOK /* 200 */ ||
-		statusCode >= http.StatusMultipleChoices /* 300 */
+	cxctx := cecontext.ContextWithTarget(context.TODO(), subscriberURIString)
+	return r.ce.Send(cectx, event)
 }
 
 // Initialize the client. Mainly intended to load stuff in its cache.
@@ -309,7 +193,7 @@ func (r *Receiver) getTrigger(ctx context.Context, ref provisioners.ChannelRefer
 
 // shouldSendMessage determines whether message 'm' should be sent based on the triggerSpec 'ts'.
 // Currently it supports exact matching on type and/or source of events.
-func (r *Receiver) shouldSendMessage(ts *eventingv1alpha1.TriggerSpec, event *cloudevents.Event) bool {
+func (r *Receiver) shouldSendMessage(ts *eventingv1alpha1.TriggerSpec, event cloudevents.Event) bool {
 	if ts.Filter == nil || ts.Filter.SourceAndType == nil {
 		r.logger.Error("No filter specified")
 		return false

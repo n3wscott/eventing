@@ -134,4 +134,5 @@ required = [
 # Will use releases as soon as they get releases going.
 [[override]]
   name = "github.com/cloudevents/sdk-go"
-  revision = "d50361a5655081514f406b4e672d72e9886c17ad"
+  source = "github.com/n3wscott/sdk-go"
+  revision = "d1f36569c7c6f9fde61bb2275ca3710a0f2b2a75"
