@@ -17,12 +17,13 @@ kind: CustomResourceDefinition
 metadata:
   labels:
     eventing.knative.dev/release: devel
+    eventing.knative.dev/source: "true"
     duck.knative.dev/source: "true"
     duck.knative.dev/binding: "true"
     knative.dev/crd-install: "true"
-  name: sinkbindings.sources.knative.dev
+  name: sinkbindings.sources.eventing.knative.dev
 spec:
-  group: sources.knative.dev
+  group: sources.eventing.knative.dev
   names:
     categories:
     - all
