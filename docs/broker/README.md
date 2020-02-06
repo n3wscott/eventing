@@ -3,7 +3,7 @@
 The `Broker` and `Trigger` CRDs are documented in the
 [docs repo](https://github.com/knative/docs/blob/master/docs/eventing/broker-trigger.md).
 
-## Implementation
+## Implementation (v1alpha1)
 
 Broker and Trigger are intended to be black boxes. How they are implemented
 should not matter to the end user. This section describes the specific
@@ -80,3 +80,79 @@ reconciles:
    `Trigger`'s Kubernetes `Service` using the HTTP path
    `/triggers/{namespace}/{name}`. Replies are sent to the `Broker`'s 'ingress'
    `Channel`.
+
+
+## Versioning
+
+## Broker v1alpha1
+
+```yaml
+apiVersion: eventing.knative.dev/v1alpha1
+kind: Broker
+metadata:
+  name: default
+  namespace: default
+spec:
+  channelTemplateSpec:
+    apiVersion: messaging.knative.dev/v1alpha1
+    kind: InMemoryChannel
+```
+
+`spec.channelTemplateSpec` allows for `object metadata` and a `spec` field.
+
+```yaml
+apiVersion: eventing.knative.dev/v1beta1
+kind: Broker
+metadata:
+  name: default
+  namespace: default
+spec:
+  config:
+    apiVersion: v1
+    kind: ConfigMap
+    name: default-broker-config
+    # namespace: default <-- defaulted via webhook
+```
+
+and this is paired with a config map:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: default-broker-config
+  namespace: default
+data:
+  channelTemplateSpec:
+    apiVersion: messaging.knative.dev/v1alpha1
+    kind: InMemoryChannel
+```
+
+## Changes required for v1alpha1
+
+```yaml
+apiVersion: eventing.knative.dev/v1alpha1
+kind: Broker
+metadata:
+  name: default
+  namespace: default
+spec:
+  channelTemplateSpec:
+    apiVersion: messaging.knative.dev/v1alpha1
+    kind: InMemoryChannel
+  config:
+    apiVersion: v1
+    kind: ConfigMap
+    name: default-broker-config
+    # namespace: default <-- defaulted via webhook
+```
+
+## Conversion from v1alpha1 to v1beta1
+
+drops v1alpha1spec.channelTemplateSpec
+v1alpha1spec.config => v1beta1spec.config
+
+
+
+
+
