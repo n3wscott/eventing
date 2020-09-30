@@ -29,7 +29,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -48,7 +47,7 @@ const (
 )
 
 type SinkBindingSubResourcesReconciler struct {
-	Client kubernetes.Interface
+	r *resolver.URIResolver
 }
 
 // NewController returns a new SinkBinding reconciler.
@@ -62,6 +61,7 @@ func NewController(
 	dc := dynamicclient.Get(ctx)
 	psInformerFactory := podspecable.Get(ctx)
 	namespaceInformer := namespace.Get(ctx)
+
 	c := &psbinding.BaseReconciler{
 		LeaderAwareFuncs: reconciler.LeaderAwareFuncs{
 			PromoteFunc: func(bkt reconciler.Bucket, enq func(reconciler.Bucket, types.NamespacedName)) error {
@@ -85,19 +85,22 @@ func NewController(
 		DynamicClient: dc,
 		Recorder: record.NewBroadcaster().NewRecorder(
 			scheme.Scheme, corev1.EventSource{Component: controllerAgentName}),
-		NamespaceLister:        namespaceInformer.Lister(),
-		SubResourcesReconciler: &SinkBindingSubResourcesReconciler{},
+		NamespaceLister: namespaceInformer.Lister(),
 	}
 	impl := controller.NewImpl(c, logger, "SinkBindings")
+	res := resolver.NewURIResolver(ctx, impl.EnqueueKey)
+
+	c.SubResourcesReconciler = &SinkBindingSubResourcesReconciler{
+		r: res,
+	}
 
 	logger.Info("Setting up event handlers")
 
 	sbInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 	namespaceInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
-	resolver := resolver.NewURIResolver(ctx, impl.EnqueueKey)
 	c.WithContext = func(ctx context.Context, b psbinding.Bindable) (context.Context, error) {
-		return v1beta1.WithURIResolver(ctx, resolver), nil
+		return v1beta1.WithURIResolver(ctx, res), nil
 	}
 	c.Tracker = tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
 	c.Factory = &duck.CachedInformerFactory{
@@ -134,19 +137,20 @@ func WithContextFactory(ctx context.Context, handler func(types.NamespacedName))
 	r := resolver.NewURIResolver(ctx, handler)
 
 	return func(ctx context.Context, b psbinding.Bindable) (context.Context, error) {
+		logging.FromContext(ctx).Info("Here trying to WithContext a", b.GetName())
 		return v1beta1.WithURIResolver(ctx, r), nil
 	}
 }
 
 func (s *SinkBindingSubResourcesReconciler) Reconcile(ctx context.Context, b psbinding.Bindable) error {
 	sb := b.(*v1beta1.SinkBinding)
-	r := v1beta1.GetURIResolver(ctx)
-	if r == nil {
+
+	if s.r == nil {
 		err := fmt.Errorf("Resolver is nil")
 		logging.FromContext(ctx).Errorf("%w", err)
 		return err
 	}
-	uri, err := r.URIFromDestinationV1(ctx, sb.Spec.Sink, sb)
+	uri, err := s.r.URIFromDestinationV1(ctx, sb.Spec.Sink, sb)
 	if err != nil {
 		logging.FromContext(ctx).Errorf("Failed to get URI from Destination: %w", err)
 		return err
