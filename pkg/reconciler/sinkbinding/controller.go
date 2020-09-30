@@ -86,7 +86,7 @@ func NewController(
 		Recorder: record.NewBroadcaster().NewRecorder(
 			scheme.Scheme, corev1.EventSource{Component: controllerAgentName}),
 		NamespaceLister:        namespaceInformer.Lister(),
-		SubResourcesReconciler: SinkBindingSubResourcesReconciler{},
+		SubResourcesReconciler: &SinkBindingSubResourcesReconciler{},
 	}
 	impl := controller.NewImpl(c, logger, "SinkBindings")
 
@@ -95,7 +95,10 @@ func NewController(
 	sbInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 	namespaceInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
-	c.WithContext = WithContextFactory(ctx, impl.EnqueueKey)
+	resolver := resolver.NewURIResolver(ctx, impl.EnqueueKey)
+	c.WithContext = func(ctx context.Context, b psbinding.Bindable) (context.Context, error) {
+		return v1beta1.WithURIResolver(ctx, resolver), nil
+	}
 	c.Tracker = tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
 	c.Factory = &duck.CachedInformerFactory{
 		Delegate: &duck.EnqueueInformerFactory{
@@ -135,7 +138,7 @@ func WithContextFactory(ctx context.Context, handler func(types.NamespacedName))
 	}
 }
 
-func (s SinkBindingSubResourcesReconciler) Reconcile(ctx context.Context, b psbinding.Bindable) error {
+func (s *SinkBindingSubResourcesReconciler) Reconcile(ctx context.Context, b psbinding.Bindable) error {
 	sb := b.(*v1beta1.SinkBinding)
 	r := v1beta1.GetURIResolver(ctx)
 	if r == nil {
@@ -153,6 +156,6 @@ func (s SinkBindingSubResourcesReconciler) Reconcile(ctx context.Context, b psbi
 }
 
 // I'm just here so I won't get fined
-func (SinkBindingSubResourcesReconciler) ReconcileDeletion(ctx context.Context, b psbinding.Bindable) error {
+func (*SinkBindingSubResourcesReconciler) ReconcileDeletion(ctx context.Context, b psbinding.Bindable) error {
 	return nil
 }
